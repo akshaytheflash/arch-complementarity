@@ -55,15 +55,19 @@ def mount_drive() -> str | None:
     return DRIVE_ROOT
 
 
-def gpu_check() -> str:
+def gpu_check(required: bool = True) -> str:
+    """Return the accelerator name. CPU is allowed for steps that opt out."""
     import torch
-    if not torch.cuda.is_available():
+    if torch.cuda.is_available():
+        return torch.cuda.get_device_name(0)
+    if required:
         raise RuntimeError(
-            "No GPU. Runtime -> Change runtime type -> T4 GPU, then Run all again.")
-    return torch.cuda.get_device_name(0)
+            "No GPU. Runtime -> Change runtime type -> T4 GPU, then Run all again. "
+            "Alternatively run a *_cpu step, which works without a GPU.")
+    return "cpu"
 
 
-def setup() -> None:
+def setup(require_gpu: bool = True) -> None:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", *INSTALL], check=False)
 
     if not os.path.exists(REPO):
@@ -80,12 +84,13 @@ def setup() -> None:
     if SRC not in sys.path:
         sys.path.insert(0, SRC)
     os.makedirs(OUT, exist_ok=True)
-    mount_drive()
+    if not os.environ.get("SKIP_DRIVE"):
+        mount_drive()
 
     commit = subprocess.run(["bash", "-lc", f"cd {REPO} && git rev-parse --short HEAD"],
                             capture_output=True, text=True).stdout.strip()
     print("repo commit:", commit)
-    print("gpu:", gpu_check())
+    print("device:", gpu_check(required=require_gpu))
     print("OK_SETUP", flush=True)
 
 
