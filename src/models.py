@@ -139,13 +139,13 @@ def load(spec_or_name, device="cuda") -> nn.Module:
 
 @torch.no_grad()
 def infer(model, loader, device="cuda", max_batches=None) -> dict:
+    on_cuda = str(device).startswith("cuda")
     feats, logits = [], []
     for i, (xb, _) in enumerate(loader):
         if max_batches is not None and i >= max_batches:
             break
         xb = xb.to(device, non_blocking=True)
-        with torch.autocast("cuda", dtype=torch.float16,
-                            enabled=device.startswith("cuda")):
+        with torch.autocast("cuda", dtype=torch.float16, enabled=on_cuda):
             out = model(xb)
         feats.append(out["feat"].float().cpu().numpy())
         logits.append(out["logits"].float().cpu().numpy())
