@@ -18,9 +18,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
 
-import nb
-from datasets import D
+import datasets as D
 import models as M
+import nb
 
 TOPK = 2000          # stratified subset size for the gate
 TOLERANCE = 1.0      # percentage points
