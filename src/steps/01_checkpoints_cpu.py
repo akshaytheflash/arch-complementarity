@@ -59,9 +59,13 @@ def main(out_dir: str) -> dict:
                   f"{rec['seconds']}s", flush=True)
             del mdl
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
             rec.update({"error": f"{type(e).__name__}: {e}", "usable": False,
+                        "traceback": tb[-1500:],
                         "seconds": round(time.time() - t0, 1)})
-            print(f"{name:14s} FAILED {e}", flush=True)
+            print(f"{name:14s} FAILED {type(e).__name__}: {e}", flush=True)
+            print(tb[-1200:], flush=True)
         results[name] = rec
         nb.save("01_checkpoints", "checkpoints.json", {"models": results,
                                                        "subset": TOPK,
