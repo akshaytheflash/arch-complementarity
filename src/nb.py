@@ -71,10 +71,20 @@ def setup(require_gpu: bool = True) -> None:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q", *INSTALL], check=False)
 
     if not os.path.exists(REPO):
-        subprocess.run(["git", "clone", "-q", REPO_URL, REPO], check=True)
+        r = subprocess.run(["git", "clone", "-q", REPO_URL, REPO],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            raise RuntimeError(f"git clone failed: {r.stderr[-500:]}")
     else:
-        subprocess.run(["bash", "-lc", f"cd {REPO} && git fetch -q origin main && "
-                                       "git reset -q --hard origin/main"], check=False)
+        # force a clean fetch; silent failure here would run stale code
+        for cmd in ("git fetch --depth 1 origin main",
+                    "git reset --hard FETCH_HEAD",
+                    "git clean -fd src"):
+            r = subprocess.run(["bash", "-lc", f"cd {REPO} && {cmd}"],
+                               capture_output=True, text=True)
+            if r.returncode != 0:
+                raise RuntimeError(f"{cmd} failed: {r.stderr[-400:]}")
+        print("pulled:", r.stdout.strip()[-200:] or "(clean)")
 
     if not os.path.exists(VMAMBA):
         subprocess.run(["git", "clone", "-q", "--depth", "1",
