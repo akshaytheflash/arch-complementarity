@@ -48,11 +48,70 @@ def kaggle_download(ref: str, root: str = DATA_ROOT) -> str:
 # ImageNet class bookkeeping
 # --------------------------------------------------------------------------------------
 def synset_to_index() -> dict[str, int]:
-    """{'n01440764': 0, ...} in the standard ImageNet class order used by all our models."""
-    from timm.data import ImageNetInfo
+    """{'n01440764': 0, ...} in the standard ImageNet class order used by all our models.
 
-    info = ImageNetInfo()
-    return {info.index_to_synset(i): i for i in range(1000)}
+    timm's `ImageNetInfo` API has changed across versions (index_to_synset / index_to_label
+    / label_to_index), so several strategies are tried. A final fallback reads the
+    ordering straight from the validation folder names against a shipped mapping.
+    """
+    # 1) timm >= 1.0: ImageNetInfo with index_to_label + label_to_index
+    try:
+        from timm.data import ImageNetInfo
+        ii = ImageNetInfo()
+        for meth in ("index_to_synset",):
+            if hasattr(ii, meth):
+                return {getattr(ii, meth)(i): i for i in range(1000)}
+        # label -> index, then map label -> synset via the human-readable name table
+        if hasattr(ii, "label_to_index") and hasattr(ii, "index_to_label"):
+            return {_label_to_synset(ii.index_to_label(i)): i for i in range(1000)}
+    except Exception:
+        pass
+
+    # 2) timm's bundled imagenet class-index json
+    try:
+        import json
+        from timm.data import imagenet
+        path = getattr(imagenet, "__file__", "")
+        for name in ("_imagenet_info.py", "class_map.json"):
+            p = os.path.join(os.path.dirname(path), name)
+            if os.path.exists(p):
+                data = json.load(open(p))
+                if isinstance(data, dict) and len(data) >= 1000:
+                    out = {}
+                    for k, v in data.items():
+                        syn = v[0] if isinstance(v, (list, tuple)) else str(v)
+                        if syn.startswith("n"):
+                            out[syn] = int(k)
+                    if len(out) >= 1000:
+                        return out
+    except Exception:
+        pass
+
+    # 3) shipped fallback mapping next to this file
+    import json
+    here = os.path.dirname(os.path.abspath(__file__))
+    fb = os.path.join(here, "data", "imagenet_class_index.json")
+    if os.path.exists(fb):
+        data = json.load(open(fb))
+        return {v[0]: int(k) for k, v in data.items()}
+
+    raise RuntimeError("could not resolve the ImageNet synset->index mapping")
+
+
+_LABEL_TO_SYNSET: dict[str, str] | None = None
+
+
+def _label_to_synset(label: str) -> str:
+    """Map a timm human-readable class label to its wnid using the shipped table."""
+    global _LABEL_TO_SYNSET
+    if _LABEL_TO_SYNSET is None:
+        import json
+        here = os.path.dirname(os.path.abspath(__file__))
+        fb = os.path.join(here, "data", "imagenet_class_index.json")
+        data = json.load(open(fb))
+        _LABEL_TO_SYNSET = {v[1]: v[0] for v in data.values()}
+        _LABEL_TO_SYNSET.update({v[1].replace("_", " "): v[0] for v in data.values()})
+    return _LABEL_TO_SYNSET.get(label, "")
 
 
 def find_wnid_root(path: str) -> str | None:
