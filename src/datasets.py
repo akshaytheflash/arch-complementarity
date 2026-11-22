@@ -54,20 +54,35 @@ def synset_to_index() -> dict[str, int]:
     / label_to_index), so several strategies are tried. A final fallback reads the
     ordering straight from the validation folder names against a shipped mapping.
     """
-    # 1) timm >= 1.0: ImageNetInfo with index_to_label + label_to_index
+    # 1) SHIPPED mapping first — deterministic, no timm API dependence.
+    try:
+        import json
+        here = os.path.dirname(os.path.abspath(__file__))
+        for fb in (os.path.join(here, "data", "imagenet_class_index.json"),
+                   os.path.join(here, "imagenet_class_index.json")):
+            if os.path.exists(fb):
+                data = json.load(open(fb))
+                out = {v[0]: int(k) for k, v in data.items()
+                       if isinstance(v, (list, tuple)) and str(v[0]).startswith("n")}
+                if len(out) >= 1000:
+                    return out
+    except Exception as e:
+        print("shipped class index unusable:", e)
+
+    # 2) timm ImageNetInfo (API varies by version)
     try:
         from timm.data import ImageNetInfo
         ii = ImageNetInfo()
-        for meth in ("index_to_synset",):
-            if hasattr(ii, meth):
-                return {getattr(ii, meth)(i): i for i in range(1000)}
-        # label -> index, then map label -> synset via the human-readable name table
-        if hasattr(ii, "label_to_index") and hasattr(ii, "index_to_label"):
-            return {_label_to_synset(ii.index_to_label(i)): i for i in range(1000)}
-    except Exception:
-        pass
+        if hasattr(ii, "index_to_synset"):
+            return {ii.index_to_synset(i): i for i in range(1000)}
+        if hasattr(ii, "index_to_label") and hasattr(ii, "label_to_index"):
+            m = {_label_to_synset(ii.index_to_label(i)): i for i in range(1000)}
+            if len(m) >= 1000 and all(m):
+                return m
+    except Exception as e:
+        print("timm ImageNetInfo unusable:", e)
 
-    # 2) timm's bundled imagenet class-index json
+    # 3) timm's bundled imagenet class-index json
     try:
         import json
         from timm.data import imagenet
