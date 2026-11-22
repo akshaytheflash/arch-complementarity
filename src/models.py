@@ -91,13 +91,13 @@ class TimmWrapper(nn.Module):
     @torch.no_grad()
     def forward(self, x):
         f = self.net.forward_features(x)
-        if f.ndim == 4:                       # BCHW (swin / conv stems)
-            f = f.mean(dim=(2, 3))
-        elif f.ndim == 3:                     # BNC -> mean over patch tokens
-            f = f.mean(dim=1)
-        else:
-            f = f.flatten(1)
-        return {"feat": f.float(), "logits": self.net.forward_head(f).float()}
+        if f.ndim == 4:                       # (B, C, H, W) conv / swin outer stage
+            feat = f.mean(dim=(2, 3))
+        elif f.ndim == 3:                     # (B, N, C) token sequence
+            feat = f.mean(dim=1)
+        else:                                 # (B, C) already pooled (e.g. CLS token)
+            feat = f
+        return {"feat": feat.float(), "logits": self.net.forward_head(feat).float()}
 
 
 def download_vmamba(spec: ModelSpec, cache: str = "/content/ckpts") -> str:
