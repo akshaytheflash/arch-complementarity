@@ -18,7 +18,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
 
-import datasets as D
+import nb
+from datasets import D
 import models as M
 
 TOPK = 2000          # stratified subset size for the gate
@@ -32,9 +33,7 @@ def main(out_dir: str) -> dict:
     val_root = D.find_wnid_root(D.kaggle_download("tusonggao/imagenet-validation-dataset"))
     print("val root:", val_root)
 
-    import nb
     for name, spec in M.REGISTRY.items():
-        rec = {"published_top1": spec.published_top1, "params_m": spec.params_m}
         t0 = time.time()
         try:
             tf, cfg = M.transform_for(spec)

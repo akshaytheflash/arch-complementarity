@@ -102,7 +102,15 @@ def run(step: str) -> dict:
     info = {"step": step, "started": time.strftime("%Y-%m-%dT%H:%M:%S"), "ok": False}
     try:
         kaggle_creds()
-        mod = __import__(f"steps.{step}", fromlist=["main"])
+        # Module names may not start with a digit ("01_checkpoints"), so load by path
+        # rather than with __import__("steps.01_checkpoints").
+        import importlib.util
+        module_file = os.path.join(SRC, "steps", f"{step}.py")
+        if not os.path.exists(module_file):
+            raise FileNotFoundError(f"no step module at {module_file}")
+        spec = importlib.util.spec_from_file_location(f"arch_comp_step_{step}", module_file)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
         result = mod.main(OUT)
         info["ok"] = True
         info["result"] = result

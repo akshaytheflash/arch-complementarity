@@ -1,72 +1,76 @@
 # HANDOFF — resume this project on a new account
 
-Last updated: 22 Nov 2026. Repo commit: `edb8c96`
+Last updated: 22 Nov 2026. Repo: `akshaytheflash/arch-complementarity` (public).
 
-## Read this first
+## Status in one line
 
-The project is **fully scaffolded and has produced zero results**. All code, the research
-design, and the verification gate are on GitHub. Nothing of value lived in the Colab
-runtime, so switching accounts loses nothing.
+**Everything needed to run the full experiment suite is on GitHub. Zero results exist yet.**
 
-**Blocker:** Colab free GPU quota for account `akshaytheflash@gmail.com` was exhausted on
-22 Nov 2026 ("You cannot currently connect to a GPU due to usage limits in Colab").
+## Why it stopped
 
-## Resume in 4 steps (new account)
+Colab free-GPU quota for `akshaytheflash@gmail.com` was exhausted on 22 Nov 2026 with
+"You cannot currently connect to a GPU due to usage limits in Colab". Switching account
+gives a fresh quota.
 
-1. Sign in to <https://colab.research.google.com> with the new account.
+## Resume (new account), 4 steps
+
+1. Sign in to <https://colab.research.google.com>.
 2. Runtime → Change runtime type → **T4 GPU** → Save.
-3. Download a fresh Kaggle token (kaggle.com → Settings → Create New Token) and upload
-   `kaggle.json` to `/content/` in the Colab file browser.
-4. Open this URL and click **Run all**:
-   `https://colab.research.google.com/github/akshaytheflash/arch-complementarity/blob/main/notebooks/step_01_checkpoints.ipynb`
+3. Upload a Kaggle token (`kaggle.json`, from kaggle.com → Settings → Create New Token)
+   into `/content/` via the file browser.
+4. Open **one** of these and click **Run all**:
 
-The notebook pulls code from GitHub itself — nothing needs uploading.
-
-## What must pass before any science is done
-
-`step_01_checkpoints` is a gate, not an experiment. It runs every model over a stratified
-2,000-image ImageNet-val subset and requires each to reproduce its published top-1 within
-**1.0 pp**. Any model that fails is marked `usable: false` and is excluded downstream.
-
-Do not proceed to later steps until at least one ViT and one VMamba are `usable: true`.
-
-Expected values (224px, ImageNet-1K, no fine-tuning):
-
-| name | published top-1 | params |
+| notebook | what it does | T4 time |
 |---|---|---|
-| deit-small | 79.8 | 22.1M |
-| vit-small | 81.3 | 22.1M |
-| swin-tiny | 81.3 | 28.3M |
-| vit-base | 85.4 | 86.6M |
-| vmamba-tiny | 82.5 | 31.0M |
-| vmamba-small | 83.6 | 50.0M |
+| `notebooks/step_01_checkpoints.ipynb` | **GATE** — every model must reproduce its published top-1 within 1.0 pp or it is excluded | ~8 min |
+| `notebooks/step_02_inference.ipynb` | 10k stratified ImageNet-val, logits + features, 4–6 models | ~25 min |
+| `notebooks/step_03_ood.ipynb` | ImageNet-A / -R / -Sketch | ~35 min |
+| `notebooks/step_04_corruption.ipynb` | 15 corruptions × 3 severities × 2–4 models | ~60 min |
+| `notebooks/step_05_explanations.ipynb` | occlusion maps 7×7, 1k images | ~45 min |
+| `notebooks/step_06_adversarial.ipynb` | FGSM + PGD transfer matrix | ~40 min |
+| `notebooks/step_07_probes.ipynb` | error-predictability probes (CPU) | ~10 min |
+| `notebooks/step_08_analysis.ipynb` | all tables + figures + zip to Drive | ~5 min |
+| `notebooks/run_all.ipynb` | everything above, one session | ~3.5 h |
 
-## Compute budget (stratified 10k protocol, per your decision)
+URLs are of the form
+`https://colab.research.google.com/github/akshaytheflash/arch-complementarity/blob/main/notebooks/<name>.ipynb`
 
-| step | est. T4 time |
-|---|---|
-| 01 checkpoints (2k images × 6 models) | ~8 min |
-| 02 inference: 4 models × 10k val | ~25 min |
-| 03 OOD: 4 models × (A, R, Sketch, V2) | ~35 min |
-| 04 corruption: 15 types × 5 sev × 2 models × 2k | ~60 min |
-| 05 explanations: occlusion 7×7 × 2 models × 1k | ~45 min |
-| 06 adversarial: FGSM/PGD transfer, 2×2 matrix | ~40 min |
-| 07 probes: error predictability | ~10 min |
-| 08 analysis + figures | ~5 min |
+**Run step 01 first, alone.** If it reports `usable: true` for fewer than one ViT and one
+SSM, stop and report — everything downstream is meaningless on a broken checkpoint.
 
-Total ≈ 3.5 GPU-hours. Free Colab gives ~12 h/day per account but disconnects on idle.
+## Files in the repo
 
-## Actual credentials / resources (verified working)
+```
+HANDOFF.md                    this file
+README.md                     project overview, layout, reproduce commands
+docs/research-design.md       frozen design: hypotheses H1–H9, protocols, failure modes
+src/models.py                 model registry (6 matched checkpoints) + inference
+src/vmamba_pt.py              official VSSM loader (pure-pytorch selective scan)
+src/datasets.py               Kaggle loaders (val / A / R / Sketch / background-only)
+src/corruption.py             15 corruption types x 5 severities, deterministic
+src/metrics.py                overlap, AURC/AUROC, ECE, DeLong, bootstrap, McNemar, Holm
+src/nb.py                     Colab harness: setup, GPU check, Drive checkpointing
+src/steps/01_checkpoints.py   the verification gate
+src/steps/02_inference.py     ID logits + features
+src/steps/03_ood.py           OOD logits
+src/steps/04_corruption.py    corruption accuracy
+src/steps/05_explanations.py  occlusion maps
+src/steps/06_adversarial.py   adversarial transfer
+src/steps/07_probes.py        error predictability
+src/steps/08_analysis.py      all tables + figures (writes results/)
+notebooks/step_*.ipynb        one per step
+notebooks/run_all.ipynb       orchestrator
+```
 
-- **GitHub token** (`repo` scope): stored in `~/.config/gh/hosts.yml`, account
-  `akshaytheflash`. Repo is public, so Colab needs no token.
-- **Kaggle**: `KGAT` / `273a8cc49a7dc8057fc3881a3075454d` (in `~/.kaggle/kaggle.json`).
-  Verified working against the Kaggle API. The new Colab account needs its own token —
-  any valid Kaggle account can download the datasets (all are public).
-- **Datasets** (public Kaggle, all verified to exist with the exact structures the
-  loaders expect):
+## Resources verified working
 
-| role | Kaggle ref | size |
+**GitHub** — public repo, no token needed to clone. Pushing uses the token in
+`~/.config/gh/hosts.yml` (account `akshaytheflash`).
+
+**Kaggle** — `KGAT` / `273a8cc49a7dc8057fc3881a3075454d`. Public datasets, so any valid
+Kaggle account works:
+
+| role | ref | size |
 |---|---|---|
 | ImageNet-1K val | `tusonggao/imagenet-validation-dataset` | 6.7 GB |
 | ImageNet-A | `paultimothymooney/natural-adversarial-examples-imageneta` | 0.7 GB |
@@ -74,20 +78,38 @@ Total ≈ 3.5 GPU-hours. Free Colab gives ~12 h/day per account but disconnects 
 | ImageNet-Sketch | `wanghaohan/imagenetsketch` | 15.2 GB |
 | ImageNet-Bg (background only) | `xiangexiang/imagenet-bg-ospcoop-cvpr2025` | 2.6 GB |
 
-- **Checkpoints**: all URLs verified live (see `src/models.py::VMAMBA_URLS`). ViT/Swin via
-  `timm`, VMamba v2 via the `#v2cls` GitHub release. VMamba source cloned from
-  `MzeroMiko/VMamba`; its pure-PyTorch `selective_scan_torch` is used (no CUDA compile).
+**Checkpoints** — all URLs verified live, listed in `src/models.py::VMAMBA_URLS`:
+
+| name | published top-1 | params | family |
+|---|---|---|---|
+| deit-small | 79.8 | 22.1M | ViT |
+| vit-small | 81.3 | 22.1M | ViT |
+| swin-tiny | 81.3 | 28.3M | ViT/hybrid |
+| vit-base | 85.4 | 86.6M | ViT |
+| vmamba-tiny | 82.5 | 31.0M | SSM |
+| vmamba-small | 83.6 | 50.0M | SSM |
+
+VMamba source is cloned from `MzeroMiko/VMamba`; its own pure-PyTorch
+`selective_scan_torch` path is used, so no CUDA extension compilation is required.
 
 ## If GPU stays unavailable
 
-- **Kaggle Notebooks** — same Kaggle key works, 30 GPU-h/week, no extra token. Needs
-  `src/nb.py` to write to `/kaggle/working` instead of Drive (~20 min port).
-- **CPU fallback** — Colab CPU works today. Drop to a 2k-image pilot; VMamba's Python-loop
-  selective scan makes it 60–100× slower, so budget accordingly.
+- **Kaggle Notebooks** — the same Kaggle key works and gives 30 GPU-h/week. Only change
+  needed: `src/nb.py` writes to `/kaggle/working` instead of Drive.
+- **CPU** — Colab CPU works today. VMamba's Python-loop selective scan makes it 60–100×
+  slower; a 2k-image pilot is the only sensible CPU scope.
 
-## What is deliberately NOT done
+## Known caveats in the current code (fixed on first run-through, or before)
 
-No results, no tables, no paper. The 6-page IEEE paper cannot be drafted before the runs:
-all five research questions (ensemble effectiveness, confidence-vs-disagreement,
-adversarial transfer, explanation divergence, OOD complementarity) are empirical.
-Writing it now would require inventing effect sizes.
+- `metrics.aurc` uses `np.trapezoid` (numpy ≥ 2.0). Colab ships numpy ≥ 2.0; on an older
+  numpy it must be `np.trapz`.
+- `CorruptedRaw` applies corruption in `__getitem__`; with `num_workers=2` that is fine,
+  but each image is corrupted repeatedly per epoch — this is a single-epoch step, so OK.
+- Step 04 runs severities 1, 3, 5 only (not all 5) to fit the budget; change `for sev in
+  (1, 3, 5)` to `(1, 2, 3, 4, 5)` for the full ImageNet-C protocol.
+
+## Deliberately not done
+
+No results, no tables, no figures, no paper. All five research questions are empirical and
+must be answered from the runs above. Writing the 6-page IEEE paper before the numbers
+exist would require inventing effect sizes, which the project's integrity rules forbid.
