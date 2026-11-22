@@ -38,26 +38,33 @@ def _ensure_importable() -> None:
         sys.modules["fvcore"] = stub
         sys.modules["fvcore.nn"] = stub_nn
     # vmamba.py decorates with @triton.jit at module level; on a CPU runtime triton is
-    # absent, so provide a no-op decorator that just returns the function unchanged.
+    # absent, so provide permissive stubs for `triton`, `triton.language` and any
+    # attribute looked up on them (used in type annotations such as `tl.tensor`).
     try:
         import triton  # noqa: F401
     except Exception:
         import types
 
-        class _Jit:
-            def __call__(self, fn=None, **kw):
-                if fn is None:
-                    return lambda f: f
-                return fn
+        class _Anything(types.ModuleType):
+            """Module whose every attribute resolves to a permissive dummy."""
 
             def __getattr__(self, name):
-                return lambda *a, **k: None
+                if name.startswith("__"):
+                    raise AttributeError(name)
+                if name == "jit":
+                    def jit(fn=None, **kw):
+                        if fn is None:
+                            return lambda f: f
+                        return fn
+                    return jit
+                # type/annotation/constexpr markers: return a dummy class
+                return type(name, (), {"__init__": lambda self, *a, **k: None})
 
-        shim = types.ModuleType("triton")
-        shim.jit = _Jit()
-        shim.language = types.ModuleType("triton.language")
+        shim = _Anything("triton")
+        lang = _Anything("triton.language")
+        shim.language = lang
         sys.modules["triton"] = shim
-        sys.modules["triton.language"] = shim.language
+        sys.modules["triton.language"] = lang
 
 
 def build_vssm(tag: str, cfg: dict, checkpoint_path: str) -> nn.Module:
